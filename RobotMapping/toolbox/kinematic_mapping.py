@@ -76,3 +76,77 @@ def Transform2Base(df):
     for i in range(1, len(single_trans_list)):
         total.append(np.dot(total[i-1], single_trans_list[i]))
     return total
+
+def ExecuteTransform(matrix, vector):
+    return np.round(np.dot(matrix , vector), 3)
+
+
+def Zbounds(a):
+    minZ=0.02
+    maxZ=1.08
+    return (a>minZ and a<maxZ)
+
+def Xbounds(a):
+    minX=0.28
+    maxX=0.82
+    return (a>minX and a<maxX)
+
+def Ybounds(a):
+    minY=-0.78
+    maxY=0.78
+    return (a>minY and a<maxY)
+
+def Bounds(a, coord):
+    if coord == 'X':
+        return Xbounds(a)
+    elif coord == 'Y':
+        return Ybounds(a)
+    elif coord == 'Z':
+        return Zbounds(a)
+    else:
+        print("ERROR")
+        return 0
+
+
+def IsBetweenBounds(theta, df=None):
+    if df is None:
+        df=init_params()
+
+    """This algorithm checks:
+
+    1. That the robot stump doesn't hit the table during joint space explorations.
+    2.  Guarantees that the robot samples trajectories within the safe box."""
+
+    df['theta']=theta
+    Matrices=Transform2Base(df)
+
+
+    standard_jointcoordinateaxis=np.array((0,0,0,1)) #with repsect to all the joints
+    """The most likely part of the robot that can crash is the small stump that has a keypad and a light, which is
+    part of joint six, and is measured (and always constant with respect to) coordinate axis #6. In the next two lines,
+    we measure the position of the two bounds of this stump """
+    keypad_jointcoordinateaxis_border1=np.array((0.10,0.09,0.05,1)) #The keypad position With respect to the sixth coordinate axis
+    keypad_jointcoordinateaxis_border2=np.array((0.10,0.09,-0.05,1))
+    endef_jointcoordinateaxis_center=np.array((0,0,0.13,1)) #With respect to the last coordinate axi
+
+
+    criticalpoint1=ExecuteTransform(Matrices[5],standard_jointcoordinateaxis)
+    criticalpoint2=ExecuteTransform(Matrices[5],keypad_jointcoordinateaxis_border1)
+    criticalpoint3=ExecuteTransform(Matrices[5],keypad_jointcoordinateaxis_border2)
+    criticalpoint4=ExecuteTransform(Matrices[7],endef_jointcoordinateaxis_center)
+
+
+
+    safe=True #InitialAssumption
+
+    for coordinate, axis in enumerate(['X', 'Y', 'Z']):
+        CPs=np.array([criticalpoint1[coordinate], criticalpoint2[coordinate], criticalpoint3[coordinate], criticalpoint4[coordinate]]) # A vector of the coordinates of our points of interest
+        for cp in CPs:
+
+            if not Bounds(cp, axis):
+                safe =False
+                break
+        if safe==False:
+            break
+
+    return safe
