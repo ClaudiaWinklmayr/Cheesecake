@@ -141,7 +141,7 @@ class depth_predictor():
         plt.legend()
         plt.show()
                 
-    def predict_single(self, joints_raw, depth_img_raw): 
+    def predict(self, joints_raw, depth_img_raw): 
         joints = joint_preprocessing(np.reshape(joints_raw, (len(joints_raw), 1)))
         depth_img = depth_image_preprocessing(np.reshape(depth_img_raw, (1, len(depth_img_raw))))
         prediction = self.model.predict(np.reshape(joints, (1, len(joints))))   
