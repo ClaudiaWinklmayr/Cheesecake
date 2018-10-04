@@ -75,8 +75,9 @@ def build_depth_model(inp_shape, outp_shape):
     model.add(keras.layers.Dense(outp_shape, activation=tf.nn.relu))
     model.add(keras.layers.Dense(outp_shape, activation=tf.nn.relu))
     # TODO: needs a normalization layer
-    optimizer = keras.optimizers.SGD(lr=0.1, momentum=0.0, decay=0)#0.000001, nesterov=False)
+    optimizer = keras.optimizers.SGD(lr=0.1, momentum=0.0, decay=0.000001)#, nesterov=False)
     #loss = keras.losses.categorical_crossentropy
+
     loss = keras.losses.mean_squared_error
     model.compile(loss=loss, optimizer=optimizer, metrics=['accuracy'])
    
@@ -90,6 +91,23 @@ class PrintDot(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs):
         if epoch % 100 == 0: print('')
         print('.', end='')
+
+
+def anomalie_detector(true_depth_distr, predicted_depth_distr): 
+    thresh = 90
+    
+    sorted_array1 = np.flip(np.sort(true_depth_distr), axis = 0)   
+    indices_sorted_array1 = np.flip(np.argsort(true_depth_distr), axis = 0)    
+    max_support_idx_array1 = np.where(np.cumsum(sorted_array1)>thresh)[0][0]
+    support_idxs_array1 = set(indices_sorted_array1[:max_support_idx_array1])
+    
+    sorted_array2 = np.flip(np.sort(predicted_depth_distr), axis = 0)   
+    indices_sorted_array2 = np.flip(np.argsort(predicted_depth_distr), axis = 0)    
+    max_support_idx_array2 = np.where(np.cumsum(sorted_array2)>thresh)[0][0]
+    support_idxs_array2 = set(indices_sorted_array2[:max_support_idx_array2])
+    
+    return list(support_idxs_array1), list(support_idxs_array2)
+        
         
 def find_support_overlap(array1, array2, thresh): 
     ''' this function takes the  distribution of depth values calclulated from a depth image and 
@@ -127,21 +145,28 @@ class depth_predictor():
             model = build_depth_model(joints_training.shape[1], images_training.shape[1])
             print('Training the depth predictor')
             history = model.fit(joints_training, images_training, epochs=training_data['epochs'], validation_split=0.2, verbose=0, callbacks=[PrintDot()])
-            plt.plot(history.history['loss'])
+            plt.plot(history.history['loss'], label = 'loss')
+            plt.plot(history.history['val_loss'], label = 'val_loss')
+            plt.legend()
+            plt.show()
+            
             model.save(model_name)
             self.model = tf.keras.models.load_model(model_name)
 
-    def predict_timeseries(self, joints_raw, depth_img_raw): 
+    def predict_timeseries(self, joints_raw, depth_img_raw, plot=True): 
         joints = joint_preprocessing(joints_raw)
         depth_img = depth_image_preprocessing(depth_img_raw)
         prediction = self.model.predict(joints)   
-        
-        plt.plot(prediction.T, label = 'predict')
-        plt.plot(depth_img.T, label = 'true')
-        plt.legend()
-        plt.show()
+
+        if plot: 
+            plt.plot(prediction.T, label = 'predict')
+            plt.plot(depth_img.T, label = 'true')
+            plt.legend()
+            plt.show()
+            
+        return prediction
                 
-    def predict_single(self, joints_raw, depth_img_raw): 
+    def predict_single(self, joints_raw, depth_img_raw, plot=True): 
         joints = joint_preprocessing(np.reshape(joints_raw, (len(joints_raw), 1)))
         depth_img = depth_image_preprocessing(np.reshape(depth_img_raw, (1, len(depth_img_raw))))
         prediction = self.model.predict(np.reshape(joints, (1, len(joints))))   
@@ -150,12 +175,15 @@ class depth_predictor():
         percent, indices = find_support_overlap(np.reshape(prediction, (prediction.shape[1])), 
                             np.reshape(depth_img, (depth_img.shape[1])), 95)
 
-        plt.plot(prediction.T, label = 'predict')
-        plt.plot(depth_img.T, label = 'true')
-        plt.scatter(indices, np.zeros(len(indices)), c = 'k', s = 50)
-        plt.title('{}% non - overlap'.format(np.round(percent, 2)))
-        plt.legend()
-        plt.show()
+        if plot:
+            plt.plot(prediction.T, label = 'predict')
+            plt.plot(depth_img.T, label = 'true')
+            plt.scatter(indices, np.zeros(len(indices)), c = 'k', s = 50)
+            plt.title('{}% non - overlap'.format(np.round(percent, 2)))
+            plt.legend()
+            plt.show()
+
+        return prediction
         
 
 
