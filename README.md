@@ -4,4 +4,4 @@ This is the source code used by the Cheesecake team at the Deep Learning and Rob
 Cheesecake team: 
 - Claudia Winklmayr
 - Samuel Bustamante
-- Sevim Çalışkan. 
+- Sevim Çalışkan
